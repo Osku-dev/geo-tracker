@@ -15,9 +15,7 @@ class Entity(Base):
     icao24: Mapped[str] = mapped_column(Text, primary_key=True)
     callsign: Mapped[str | None] = mapped_column(Text, nullable=True)
     origin_country: Mapped[str | None] = mapped_column(Text, nullable=True)
-    last_seen: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
-    )
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     positions: Mapped[list["Position"]] = relationship(back_populates="entity")
 

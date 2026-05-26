@@ -10,7 +10,9 @@ from fastapi import WebSocket
 logger = logging.getLogger(__name__)
 
 
-def _point_in_bbox(lon: float, lat: float, bbox: tuple[float, float, float, float]) -> bool:
+def _point_in_bbox(
+    lon: float, lat: float, bbox: tuple[float, float, float, float]
+) -> bool:
     min_lon, min_lat, max_lon, max_lat = bbox
     return min_lon <= lon <= max_lon and min_lat <= lat <= max_lat
 

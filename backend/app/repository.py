@@ -87,8 +87,7 @@ async def fetch_viewport_geojson(
 ) -> dict[str, Any]:
     """Latest position per ICAO24 inside bbox (PostgreSQL DISTINCT ON)."""
     cutoff = datetime.now(UTC) - timedelta(hours=max_age_hours)
-    q = text(
-        """
+    q = text("""
         SELECT DISTINCT ON (p.icao24)
             p.icao24,
             ST_AsGeoJSON(p.geom)::json AS geom,
@@ -109,8 +108,7 @@ async def fetch_viewport_geojson(
           )
         ORDER BY p.icao24, p.t DESC
         LIMIT :limit
-        """
-    )
+        """)
     result = await session.execute(
         q,
         {

@@ -74,7 +74,9 @@ async def _prune_loop() -> None:
             async with async_session_factory() as session:
                 await prune_old_positions(session, POSITION_RETENTION_HOURS)
                 await session.commit()
-                logger.info("Pruned positions older than %s h", POSITION_RETENTION_HOURS)
+                logger.info(
+                    "Pruned positions older than %s h", POSITION_RETENTION_HOURS
+                )
         except asyncio.CancelledError:
             raise
         except Exception:
