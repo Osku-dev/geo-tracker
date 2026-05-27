@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import OPENSKY_POLL_SECONDS, POSITION_RETENTION_HOURS
 from app.database import async_session_factory, engine, get_session
 from app.hub import WsHub, parse_bbox_query
-from app.opensky import fetch_states, state_to_model_fields
+from app.opensky import fetch_states, process_states, state_to_model_fields
 from app.repository import (
     fetch_viewport_geojson,
     prune_old_positions,
@@ -37,26 +37,7 @@ async def _poll_opensky_loop() -> None:
                 ts = datetime.now(UTC)
                 features: list[dict] = []
                 async with async_session_factory() as session:
-                    for row in states:
-                        fields = state_to_model_fields(row)
-                        if not fields:
-                            continue
-                        feat = await upsert_entity_and_position(
-                            session,
-                            icao24=fields["icao24"],
-                            callsign=fields["callsign"],
-                            origin_country=fields["origin_country"],
-                            lon=fields["lon"],
-                            lat=fields["lat"],
-                            baro_altitude_m=fields["baro_altitude_m"],
-                            velocity_m_s=fields["velocity_m_s"],
-                            true_track_deg=fields["true_track_deg"],
-                            vertical_rate_m_s=fields["vertical_rate_m_s"],
-                            on_ground=fields["on_ground"],
-                            ts=ts,
-                        )
-                        if feat:
-                            features.append(feat)
+                    features = await process_states(session, states, ts)
                     await session.commit()
                 await hub.broadcast_updates(features)
                 logger.info("OpenSky ingest: %s features", len(features))

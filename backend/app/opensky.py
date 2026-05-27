@@ -5,6 +5,7 @@ from typing import Any
 import httpx
 
 from app.config import OPENSKY_STATES_URL
+from backend.app.repository import upsert_entity_and_position
 
 
 async def fetch_states(client: httpx.AsyncClient) -> tuple[int | None, list[list[Any]]]:
@@ -70,3 +71,31 @@ def state_to_model_fields(row: list[Any]) -> dict[str, Any] | None:
         "true_track_deg": p["true_track_deg"],
         "vertical_rate_m_s": p["vertical_rate_m_s"],
     }
+
+async def process_states(session, states, ts) -> list[dict]:
+    features: list[dict] = []
+
+    for row in states:
+        fields = state_to_model_fields(row)
+        if not fields:
+            continue
+
+        feat = await upsert_entity_and_position(
+            session,
+            icao24=fields["icao24"],
+            callsign=fields["callsign"],
+            origin_country=fields["origin_country"],
+            lon=fields["lon"],
+            lat=fields["lat"],
+            baro_altitude_m=fields["baro_altitude_m"],
+            velocity_m_s=fields["velocity_m_s"],
+            true_track_deg=fields["true_track_deg"],
+            vertical_rate_m_s=fields["vertical_rate_m_s"],
+            on_ground=fields["on_ground"],
+            ts=ts,
+        )
+
+        if feat:
+            features.append(feat)
+
+    return features
