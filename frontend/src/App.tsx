@@ -18,7 +18,7 @@ function boundsParams(b: LngLatBounds): string {
   }).toString();
 }
 
-function mergeFeatures(existing: Feature[], incoming: Feature[]): Feature[] {
+function upsertFeaturesById(existing: Feature[], incoming: Feature[]): Feature[] {
   const map = new Map<string, Feature>();
   for (const f of existing) {
     const id = String((f.properties as Record<string, unknown>)?.icao24 ?? "");
@@ -64,7 +64,7 @@ export default function App() {
         const r = await fetch(`${apiBase}/viewport?${q}`);
         if (!r.ok) throw new Error(await r.text());
         const data = (await r.json()) as FeatureCollection;
-        fcRef.features = mergeFeatures(fcRef.features, data.features as Feature[]);
+        fcRef.features = upsertFeaturesById(fcRef.features, data.features as Feature[]);
         syncSource();
       } catch (e) {
         console.error("viewport fetch failed", e);
@@ -96,7 +96,7 @@ export default function App() {
             features?: Feature[];
           };
           if (msg.type !== "updates" || !msg.features?.length) return;
-          fcRef.features = mergeFeatures(fcRef.features, msg.features);
+          fcRef.features = upsertFeaturesById(fcRef.features, msg.features);
           syncSource();
         } catch {
           /* ignore */
