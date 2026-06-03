@@ -10,23 +10,24 @@ const apiBase = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 const wsBase = import.meta.env.VITE_WS_URL ?? "ws://localhost:8000/ws/live";
 const terrainTileJson = import.meta.env.VITE_TERRAIN_TILEJSON;
 
-
-  export function useGeoTrackerMap(
-  containerRef: React.RefObject<HTMLDivElement>
+export function useGeoTrackerMap(
+  containerRef: React.RefObject<HTMLDivElement>,
 ) {
-    const wsRef = useRef<WebSocket | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fcRef = useRef<FeatureCollection>({
-  type: "FeatureCollection",
-  features: [],
-});
+    type: "FeatureCollection",
+    features: [],
+  });
   useEffect(() => {
     if (!containerRef.current) return;
 
     const map = createMap(containerRef.current);
 
     const syncSource = () => {
-      const src = map.getSource("traffic") as maplibregl.GeoJSONSource | undefined;
+      const src = map.getSource("traffic") as
+        | maplibregl.GeoJSONSource
+        | undefined;
       if (src) src.setData(fcRef.current);
     };
 
@@ -37,14 +38,15 @@ const terrainTileJson = import.meta.env.VITE_TERRAIN_TILEJSON;
         const r = await fetch(`${apiBase}/viewport?${q}`);
         if (!r.ok) throw new Error(await r.text());
         const data = (await r.json()) as FeatureCollection;
-        fcRef.current.features = upsertFeaturesById(fcRef.current.features, data.features as Feature[]);
+        fcRef.current.features = upsertFeaturesById(
+          fcRef.current.features,
+          data.features as Feature[],
+        );
         syncSource();
       } catch (e) {
         console.error("viewport fetch failed", e);
       }
     }
-
-    
 
     function connectWs(b: LngLatBounds) {
       wsRef.current?.close();
@@ -58,7 +60,10 @@ const terrainTileJson = import.meta.env.VITE_TERRAIN_TILEJSON;
             features?: Feature[];
           };
           if (msg.type !== "updates" || !msg.features?.length) return;
-          fcRef.current.features = upsertFeaturesById(fcRef.current.features, msg.features);
+          fcRef.current.features = upsertFeaturesById(
+            fcRef.current.features,
+            msg.features,
+          );
           syncSource();
         } catch {
           /* ignore */
@@ -158,4 +163,3 @@ function createMap(container: HTMLDivElement) {
 
   return map;
 }
-
