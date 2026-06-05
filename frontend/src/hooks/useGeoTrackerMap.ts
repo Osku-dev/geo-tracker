@@ -1,7 +1,7 @@
 import type { Feature, FeatureCollection } from "geojson";
 import maplibregl, { type LngLatBounds } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { boundsParams, sendBbox, upsertFeaturesById } from "../utils";
 
 const STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
@@ -19,6 +19,12 @@ export function useGeoTrackerMap(
     type: "FeatureCollection",
     features: [],
   });
+
+  const [selectedAircraft, setSelectedAircraft] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
+
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -129,6 +135,21 @@ export function useGeoTrackerMap(
         },
       });
 
+      map.on("click", "traffic-core", (e) => {
+        const feature = e.features?.[0];
+        if (!feature) return;
+
+        setSelectedAircraft(feature.properties as Record<string, unknown>);
+      });
+
+      map.on("mouseenter", "traffic-core", () => {
+        map.getCanvas().style.cursor = "pointer";
+      });
+
+      map.on("mouseleave", "traffic-core", () => {
+        map.getCanvas().style.cursor = "";
+      });
+
       const initialB = map.getBounds();
       connectWs(initialB);
       void loadViewport();
@@ -143,6 +164,9 @@ export function useGeoTrackerMap(
       map.remove();
     };
   }, []);
+   return {
+    selectedAircraft,
+  };
 }
 
 function createMap(container: HTMLDivElement) {

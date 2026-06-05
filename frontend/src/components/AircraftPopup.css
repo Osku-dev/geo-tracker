@@ -1,0 +1,19 @@
+.aircraft-popup {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+
+  min-width: 260px;
+  padding: 1rem;
+
+  background: rgba(20, 20, 20, 0.9);
+  color: white;
+
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.aircraft-popup h3 {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+}
