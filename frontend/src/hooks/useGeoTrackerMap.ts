@@ -3,6 +3,7 @@ import maplibregl, { type LngLatBounds } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
 import { boundsParams, sendBbox, upsertFeaturesById } from "../utils";
+import { Aircraft } from "../types/aircraft";
 
 const STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
 
@@ -20,10 +21,7 @@ export function useGeoTrackerMap(
     features: [],
   });
 
-  const [selectedAircraft, setSelectedAircraft] = useState<Record<
-    string,
-    unknown
-  > | null>(null);
+  const [selectedAircraft, setSelectedAircraft] = useState<Aircraft | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -139,7 +137,7 @@ export function useGeoTrackerMap(
         const feature = e.features?.[0];
         if (!feature) return;
 
-        setSelectedAircraft(feature.properties as Record<string, unknown>);
+        setSelectedAircraft(feature.properties as Aircraft);
       });
 
       map.on("mouseenter", "traffic-core", () => {

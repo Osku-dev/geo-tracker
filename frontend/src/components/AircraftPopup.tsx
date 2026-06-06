@@ -1,7 +1,8 @@
+import { Aircraft } from "../types/aircraft";
 import "./AircraftPopup.css";
 
 type Props = {
-  aircraft: Record<string, unknown> | null;
+  aircraft: Aircraft | null;
 };
 
 export function AircraftPopup({ aircraft }: Props) {

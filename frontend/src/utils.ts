@@ -1,5 +1,6 @@
 import { Feature } from "geojson";
 import { LngLatBounds } from "maplibre-gl";
+import { Aircraft } from "./types/aircraft";
 
 export function boundsParams(b: LngLatBounds): string {
   return new URLSearchParams({
@@ -16,11 +17,11 @@ export function upsertFeaturesById(
 ): Feature[] {
   const map = new Map<string, Feature>();
   for (const f of existing) {
-    const id = String((f.properties as Record<string, unknown>)?.icao24 ?? "");
+    const id = String((f.properties as Aircraft)?.icao24 ?? "");
     if (id) map.set(id, f);
   }
   for (const f of incoming) {
-    const id = String((f.properties as Record<string, unknown>)?.icao24 ?? "");
+    const id = String((f.properties as Aircraft)?.icao24 ?? "");
     if (id) map.set(id, f);
   }
   return Array.from(map.values());
