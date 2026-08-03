@@ -5,7 +5,7 @@ from typing import Any
 import httpx
 
 from app.config import OPENSKY_STATES_URL
-from backend.app.repository import upsert_entity_and_position
+from app.repository import upsert_entity_and_position
 
 
 async def fetch_states(client: httpx.AsyncClient) -> tuple[int | None, list[list[Any]]]:
