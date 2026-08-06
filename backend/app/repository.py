@@ -56,7 +56,6 @@ async def upsert_entity_and_position(
         on_ground=on_ground,
     )
     session.add(pos)
-    await session.flush()
 
     return {
         "type": "Feature",
