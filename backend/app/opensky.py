@@ -72,6 +72,7 @@ def state_to_model_fields(row: list[Any]) -> dict[str, Any] | None:
         "vertical_rate_m_s": p["vertical_rate_m_s"],
     }
 
+
 async def process_states(session, states, ts) -> list[dict]:
     features: list[dict] = []
 

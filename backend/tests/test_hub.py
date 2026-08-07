@@ -18,7 +18,7 @@ class TestPointInBbox:
         bbox = (0.0, 0.0, 10.0, 10.0)
         assert _point_in_bbox(0.0, 0.0, bbox) is True
         assert _point_in_bbox(10.0, 10.0, bbox) is True
-        
+
 
 class TestParseBboxQuery:
     def test_valid_bbox_parses_correctly(self):
