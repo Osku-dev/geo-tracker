@@ -99,3 +99,57 @@ async def test_upsert_updates_existing_entity(db_session):
     assert entity.callsign == "NEW456"
     assert entity.origin_country == "Sweden"
     assert entity.last_seen == second_ts
+
+@pytest.mark.asyncio
+async def test_upsert_stores_multiple_positions_for_same_entity(db_session):
+    first_ts = datetime(2025, 1, 1, tzinfo=UTC)
+    second_ts = datetime(2025, 1, 1, 1, tzinfo=UTC)
+
+    await upsert_entity_and_position(
+        db_session,
+        icao24="abc123",
+        callsign="FIN123",
+        origin_country="Finland",
+        lon=24.94,
+        lat=60.17,
+        baro_altitude_m=1000,
+        velocity_m_s=250,
+        true_track_deg=180,
+        vertical_rate_m_s=5,
+        on_ground=False,
+        ts=first_ts,
+    )
+
+    await db_session.commit()
+
+    await upsert_entity_and_position(
+        db_session,
+        icao24="abc123",
+        callsign="FIN123",
+        origin_country="Finland",
+        lon=25.00,
+        lat=61.00,
+        baro_altitude_m=2000,
+        velocity_m_s=300,
+        true_track_deg=90,
+        vertical_rate_m_s=10,
+        on_ground=False,
+        ts=second_ts,
+    )
+
+    await db_session.commit()
+
+    result = await db_session.execute(
+        select(Position)
+        .where(Position.icao24 == "abc123")
+        .order_by(Position.t)
+    )
+    positions = result.scalars().all()
+
+    assert len(positions) == 2
+
+    assert positions[0].t == first_ts
+    assert positions[0].baro_altitude_m == 1000
+
+    assert positions[1].t == second_ts
+    assert positions[1].baro_altitude_m == 2000    
