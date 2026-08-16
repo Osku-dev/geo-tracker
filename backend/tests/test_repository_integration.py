@@ -1,10 +1,10 @@
-from datetime import datetime, UTC
+from datetime import datetime, UTC, timedelta
 
 import pytest
 from sqlalchemy import select
 
 from app.models import Entity, Position
-from app.repository import upsert_entity_and_position
+from app.repository import fetch_viewport_geojson, upsert_entity_and_position
 
 
 @pytest.mark.asyncio
@@ -152,4 +152,121 @@ async def test_upsert_stores_multiple_positions_for_same_entity(db_session):
     assert positions[0].baro_altitude_m == 1000
 
     assert positions[1].t == second_ts
-    assert positions[1].baro_altitude_m == 2000    
+    assert positions[1].baro_altitude_m == 2000
+
+
+@pytest.mark.asyncio
+async def test_fetch_viewport_returns_latest_position_per_entity(db_session):
+    now = datetime.now(UTC)
+    first_ts = now - timedelta(hours=1)
+    second_ts = now
+
+    await upsert_entity_and_position(
+        db_session,
+        icao24="abc123",
+        callsign="FIN123",
+        origin_country="Finland",
+        lon=24.94,
+        lat=60.17,
+        baro_altitude_m=1000,
+        velocity_m_s=250,
+        true_track_deg=180,
+        vertical_rate_m_s=5,
+        on_ground=False,
+        ts=first_ts,
+    )
+
+    await upsert_entity_and_position(
+        db_session,
+        icao24="abc123",
+        callsign="FIN123",
+        origin_country="Finland",
+        lon=25.00,
+        lat=61.00,
+        baro_altitude_m=2000,
+        velocity_m_s=300,
+        true_track_deg=90,
+        vertical_rate_m_s=10,
+        on_ground=False,
+        ts=second_ts,
+    )
+
+    await db_session.commit()
+
+    result = await fetch_viewport_geojson(
+        db_session,
+        min_lon=20,
+        min_lat=55,
+        max_lon=30,
+        max_lat=65,
+    )
+
+    assert len(result["features"]) == 1
+
+    feature = result["features"][0]
+
+    assert feature["properties"]["icao24"] == "abc123"
+    assert feature["properties"]["baro_altitude_m"] == 2000
+    assert feature["properties"]["velocity_m_s"] == 300
+    assert feature["properties"]["true_track_deg"] == 90
+    assert feature["properties"]["time"] == second_ts.isoformat()
+
+    assert feature["geometry"] == {
+        "type": "Point",
+        "coordinates": [25.0, 61.0],
+    }
+
+
+@pytest.mark.asyncio
+async def test_fetch_viewport_excludes_positions_outside_bbox(db_session):
+    now = datetime.now(UTC)
+
+    await upsert_entity_and_position(
+        db_session,
+        icao24="abc123",
+        callsign="FIN123",
+        origin_country="Finland",
+        lon=24.94,
+        lat=60.17,
+        baro_altitude_m=1000,
+        velocity_m_s=250,
+        true_track_deg=180,
+        vertical_rate_m_s=5,
+        on_ground=False,
+        ts=now,
+    )
+
+    await upsert_entity_and_position(
+        db_session,
+        icao24="xyz789",
+        callsign="SAS456",
+        origin_country="Sweden",
+        lon=30.00,
+        lat=70.00,
+        baro_altitude_m=2000,
+        velocity_m_s=300,
+        true_track_deg=90,
+        vertical_rate_m_s=10,
+        on_ground=False,
+        ts=now,
+    )
+
+    await db_session.commit()
+
+    result = await fetch_viewport_geojson(
+        db_session,
+        min_lon=20,
+        min_lat=55,
+        max_lon=25,
+        max_lat=65,
+    )
+
+    assert len(result["features"]) == 1
+
+    feature = result["features"][0]
+
+    assert feature["properties"]["icao24"] == "abc123"
+    assert feature["geometry"] == {
+        "type": "Point",
+        "coordinates": [24.94, 60.17],
+    }    
