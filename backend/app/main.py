@@ -14,11 +14,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import OPENSKY_POLL_SECONDS, POSITION_RETENTION_HOURS
 from app.database import async_session_factory, engine, get_session
 from app.hub import WsHub, parse_bbox_query
-from app.opensky import fetch_states, process_states, state_to_model_fields
+from app.opensky import fetch_states, process_states
 from app.repository import (
     fetch_viewport_geojson,
-    prune_old_positions,
-    upsert_entity_and_position,
+    prune_old_positions
 )
 
 logging.basicConfig(level=logging.INFO)
