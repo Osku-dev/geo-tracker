@@ -16,36 +16,52 @@ export function useGeoTrackerMap(
 ) {
   const wsRef = useRef<WebSocket | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const mapRef = useRef<maplibregl.Map | null>(null);
+
   const fcRef = useRef<FeatureCollection>({
     type: "FeatureCollection",
     features: [],
   });
 
-  const [selectedAircraft, setSelectedAircraft] = useState<Aircraft | null>(null);
+  const [selectedAircraft, setSelectedAircraft] =
+    useState<Aircraft | null>(null);
+
+  const [aircraftHistory, setAircraftHistory] =
+    useState<GeoJSON.Feature | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
 
     const map = createMap(containerRef.current);
+    mapRef.current = map;
 
     const syncSource = () => {
       const src = map.getSource("traffic") as
         | maplibregl.GeoJSONSource
         | undefined;
+
       if (src) src.setData(fcRef.current);
     };
 
     async function loadViewport() {
       const b = map.getBounds();
       const q = boundsParams(b);
+
       try {
         const r = await fetch(`${apiBase}/viewport?${q}`);
-        if (!r.ok) throw new Error(await r.text());
+
+        if (!r.ok) {
+          throw new Error(await r.text());
+        }
+
         const data = (await r.json()) as FeatureCollection;
+
         fcRef.current.features = upsertFeaturesById(
           fcRef.current.features,
           data.features as Feature[],
         );
+
         syncSource();
       } catch (e) {
         console.error("viewport fetch failed", e);
@@ -54,36 +70,55 @@ export function useGeoTrackerMap(
 
     function connectWs(b: LngLatBounds) {
       wsRef.current?.close();
+
       const wsUrl = `${wsBase}?${boundsParams(b)}`;
       const ws = new WebSocket(wsUrl);
+
       wsRef.current = ws;
+
       ws.onmessage = (ev) => {
         try {
           const msg = JSON.parse(ev.data as string) as {
             type?: string;
             features?: Feature[];
           };
+
           if (msg.type !== "updates" || !msg.features?.length) return;
+
           fcRef.current.features = upsertFeaturesById(
             fcRef.current.features,
             msg.features,
           );
+
           syncSource();
         } catch {
           /* ignore */
         }
       };
+
       ws.onopen = () => sendBbox(ws, map.getBounds());
     }
 
     function scheduleViewportAndBbox() {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+
       debounceRef.current = setTimeout(() => {
         const b = map.getBounds();
+
         void loadViewport();
+
         const ws = wsRef.current;
-        if (ws?.readyState === WebSocket.OPEN) sendBbox(ws, b);
-        else if (!ws || ws.readyState === WebSocket.CLOSED) connectWs(b);
+
+        if (ws?.readyState === WebSocket.OPEN) {
+          sendBbox(ws, b);
+        } else if (
+          !ws ||
+          ws.readyState === WebSocket.CLOSED
+        ) {
+          connectWs(b);
+        }
       }, 320);
     }
 
@@ -94,13 +129,35 @@ export function useGeoTrackerMap(
           url: terrainTileJson,
           tileSize: 256,
         });
-        map.setTerrain({ source: "terrain-rgb", exaggeration: 1.25 });
+
+        map.setTerrain({
+          source: "terrain-rgb",
+          exaggeration: 1.25,
+        });
       }
 
       map.addSource("traffic", {
         type: "geojson",
         data: fcRef.current,
         promoteId: "icao24",
+      });
+
+      map.addSource("aircraft-history", {
+        type: "geojson",
+        data: {
+          type: "FeatureCollection",
+          features: [],
+        },
+      });
+
+      map.addLayer({
+        id: "aircraft-history-line",
+        type: "line",
+        source: "aircraft-history",
+        paint: {
+          "line-width": 4,
+          "line-opacity": 0.8,
+        },
       });
 
       map.addLayer({
@@ -133,11 +190,30 @@ export function useGeoTrackerMap(
         },
       });
 
-      map.on("click", "traffic-core", (e) => {
+      map.on("click", "traffic-core", async (e) => {
         const feature = e.features?.[0];
+
         if (!feature) return;
 
-        setSelectedAircraft(feature.properties as Aircraft);
+        const aircraft = feature.properties as Aircraft;
+
+        setSelectedAircraft(aircraft);
+
+        try {
+          const response = await fetch(
+            `${apiBase}/aircraft/${aircraft.icao24}/history`,
+          );
+
+          if (!response.ok) {
+            throw new Error(await response.text());
+          }
+
+          const history = await response.json();
+
+          setAircraftHistory(history);
+        } catch (e) {
+          console.error("Failed to fetch aircraft history", e);
+        }
       });
 
       map.on("mouseenter", "traffic-core", () => {
@@ -149,6 +225,7 @@ export function useGeoTrackerMap(
       });
 
       const initialB = map.getBounds();
+
       connectWs(initialB);
       void loadViewport();
     });
@@ -156,13 +233,38 @@ export function useGeoTrackerMap(
     map.on("moveend", scheduleViewportAndBbox);
 
     return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+
       wsRef.current?.close();
       wsRef.current = null;
+
       map.remove();
+      mapRef.current = null;
     };
   }, []);
-   return {
+
+  useEffect(() => {
+    if (!aircraftHistory) return;
+
+    const map = mapRef.current;
+
+    if (!map) return;
+
+    const source = map.getSource("aircraft-history") as
+      | maplibregl.GeoJSONSource
+      | undefined;
+
+    if (!source) return;
+
+    source.setData({
+      type: "FeatureCollection",
+      features: [aircraftHistory],
+    });
+  }, [aircraftHistory]);
+
+  return {
     selectedAircraft,
   };
 }
@@ -179,7 +281,9 @@ function createMap(container: HTMLDivElement) {
   });
 
   map.addControl(
-    new maplibregl.NavigationControl({ visualizePitch: true }),
+    new maplibregl.NavigationControl({
+      visualizePitch: true,
+    }),
     "top-right",
   );
 

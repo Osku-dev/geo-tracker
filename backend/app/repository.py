@@ -145,3 +145,32 @@ async def fetch_viewport_geojson(
 async def prune_old_positions(session: AsyncSession, retention_hours: int) -> None:
     cutoff = datetime.now(UTC) - timedelta(hours=retention_hours)
     await session.execute(delete(Position).where(Position.t < cutoff))
+
+async def fetch_aircraft_history(
+    session: AsyncSession,
+    *,
+    icao24: str,
+    hours: int = 24,
+) -> list[dict[str, Any]]:
+    cutoff = datetime.now(UTC) - timedelta(hours=hours)
+
+    q = text("""
+        SELECT
+            p.icao24,
+            ST_AsGeoJSON(p.geom)::json AS geom,
+            p.t
+        FROM positions p
+        WHERE p.icao24 = :icao24
+          AND p.t > :cutoff
+        ORDER BY p.t
+    """)
+
+    result = await session.execute(
+        q,
+        {
+            "icao24": icao24,
+            "cutoff": cutoff,
+        },
+    )
+
+    return result.mappings().all()    

@@ -16,6 +16,7 @@ from app.database import async_session_factory, engine, get_session
 from app.hub import WsHub, parse_bbox_query
 from app.opensky import fetch_states, process_states
 from app.repository import (
+    fetch_aircraft_history,
     fetch_viewport_geojson,
     prune_old_positions
 )
@@ -150,3 +151,30 @@ async def viewport(
         max_lon=max_lon,
         max_lat=max_lat,
     )
+
+@app.get("/aircraft/{icao24}/history")
+async def aircraft_history(
+    icao24: str,
+    session: AsyncSession = Depends(get_session),
+):
+    rows = await fetch_aircraft_history(
+        session,
+        icao24=icao24,
+        hours=24,
+    )
+
+    coordinates = [
+        row["geom"]["coordinates"]
+        for row in rows
+    ]
+
+    return {
+        "type": "Feature",
+        "geometry": {
+            "type": "LineString",
+            "coordinates": coordinates,
+        },
+        "properties": {
+            "icao24": icao24,
+        },
+    }
