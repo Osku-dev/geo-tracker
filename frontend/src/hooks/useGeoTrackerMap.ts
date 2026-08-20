@@ -4,9 +4,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
 import { boundsParams, sendBbox, upsertFeaturesById } from "../utils";
 import { Aircraft } from "../types/aircraft";
-
-const STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
-
+import { createMap } from "../helpers/mapHelpers";
 const apiBase = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 const wsBase = import.meta.env.VITE_WS_URL ?? "ws://localhost:8000/ws/live";
 const terrainTileJson = import.meta.env.VITE_TERRAIN_TILEJSON;
@@ -267,25 +265,4 @@ export function useGeoTrackerMap(
   return {
     selectedAircraft,
   };
-}
-
-function createMap(container: HTMLDivElement) {
-  const map = new maplibregl.Map({
-    container,
-    style: STYLE_URL,
-    center: [10.45, 51.16],
-    zoom: 5,
-    pitch: 52,
-    bearing: -12,
-    maxPitch: 85,
-  });
-
-  map.addControl(
-    new maplibregl.NavigationControl({
-      visualizePitch: true,
-    }),
-    "top-right",
-  );
-
-  return map;
 }
