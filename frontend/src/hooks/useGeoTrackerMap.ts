@@ -22,8 +22,9 @@ export function useGeoTrackerMap(
     features: [],
   });
 
-  const [selectedAircraft, setSelectedAircraft] =
-    useState<Aircraft | null>(null);
+  const [selectedAircraft, setSelectedAircraft] = useState<Aircraft | null>(
+    null,
+  );
 
   const [aircraftHistory, setAircraftHistory] =
     useState<GeoJSON.Feature | null>(null);
@@ -111,10 +112,7 @@ export function useGeoTrackerMap(
 
         if (ws?.readyState === WebSocket.OPEN) {
           sendBbox(ws, b);
-        } else if (
-          !ws ||
-          ws.readyState === WebSocket.CLOSED
-        ) {
+        } else if (!ws || ws.readyState === WebSocket.CLOSED) {
           connectWs(b);
         }
       }, 320);
@@ -122,15 +120,15 @@ export function useGeoTrackerMap(
 
     map.on("load", () => {
       if (terrainTileJson) {
-        map.addSource("terrain-rgb", {
+        map.addSource("terrain", {
           type: "raster-dem",
           url: terrainTileJson,
           tileSize: 256,
         });
 
         map.setTerrain({
-          source: "terrain-rgb",
-          exaggeration: 1.25,
+          source: "terrain",
+          exaggeration: 2.5,
         });
       }
 
@@ -156,6 +154,12 @@ export function useGeoTrackerMap(
           "line-width": 4,
           "line-opacity": 0.8,
         },
+      });
+
+      map.addLayer({
+        id: "terrain-hillshade",
+        type: "hillshade",
+        source: "terrain",
       });
 
       map.addLayer({

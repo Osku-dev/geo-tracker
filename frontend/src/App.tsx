@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { useGeoTrackerMap } from "../src/hooks/useGeoTrackerMap";
+import { useGeoTrackerMap } from "./hooks/useGeoTrackerMap";
 import { AircraftPopup } from "./components/AircraftPopup";
 
 export default function App() {
