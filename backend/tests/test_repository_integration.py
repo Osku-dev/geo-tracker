@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy import select
 
 from app.models import Entity, Position
-from app.repository import fetch_viewport_geojson, upsert_entity_and_position
+from app.repository import fetch_aircraft_history, fetch_viewport_geojson, upsert_entity_and_position
 
 
 @pytest.mark.asyncio
@@ -269,4 +269,151 @@ async def test_fetch_viewport_excludes_positions_outside_bbox(db_session):
     assert feature["geometry"] == {
         "type": "Point",
         "coordinates": [24.94, 60.17],
-    }    
+    }
+
+@pytest.mark.asyncio
+async def test_fetch_aircraft_history_returns_positions(db_session):
+    now = datetime.now(UTC)
+    first_ts = now - timedelta(hours=2)
+    second_ts = now - timedelta(hours=1)
+
+    await upsert_entity_and_position(
+        db_session,
+        icao24="abc123",
+        callsign="FIN123",
+        origin_country="Finland",
+        lon=24.94,
+        lat=60.17,
+        baro_altitude_m=1000,
+        velocity_m_s=250,
+        true_track_deg=180,
+        vertical_rate_m_s=5,
+        on_ground=False,
+        ts=first_ts,
+    )
+
+    await upsert_entity_and_position(
+        db_session,
+        icao24="abc123",
+        callsign="FIN123",
+        origin_country="Finland",
+        lon=25.00,
+        lat=61.00,
+        baro_altitude_m=2000,
+        velocity_m_s=300,
+        true_track_deg=90,
+        vertical_rate_m_s=10,
+        on_ground=False,
+        ts=second_ts,
+    )
+
+    await db_session.commit()
+
+    result = await fetch_aircraft_history(
+        db_session,
+        icao24="abc123",
+        hours=24,
+    )
+
+    assert len(result) == 2
+
+    assert result[0]["icao24"] == "abc123"
+    assert result[0]["t"] == first_ts
+    assert result[0]["geom"]["coordinates"] == [24.94, 60.17]
+
+    assert result[1]["icao24"] == "abc123"
+    assert result[1]["t"] == second_ts
+    assert result[1]["geom"]["coordinates"] == [25.0, 61.0]
+
+@pytest.mark.asyncio
+async def test_fetch_aircraft_history_only_returns_requested_aircraft(db_session):
+    now = datetime.now(UTC)
+
+    await upsert_entity_and_position(
+        db_session,
+        icao24="abc123",
+        callsign="FIN123",
+        origin_country="Finland",
+        lon=24.94,
+        lat=60.17,
+        baro_altitude_m=1000,
+        velocity_m_s=250,
+        true_track_deg=180,
+        vertical_rate_m_s=5,
+        on_ground=False,
+        ts=now,
+    )
+
+    await upsert_entity_and_position(
+        db_session,
+        icao24="xyz789",
+        callsign="SAS456",
+        origin_country="Sweden",
+        lon=25.00,
+        lat=61.00,
+        baro_altitude_m=2000,
+        velocity_m_s=300,
+        true_track_deg=90,
+        vertical_rate_m_s=10,
+        on_ground=False,
+        ts=now,
+    )
+
+    await db_session.commit()
+
+    result = await fetch_aircraft_history(
+        db_session,
+        icao24="abc123",
+        hours=24,
+    )
+
+    assert len(result) == 1
+    assert result[0]["icao24"] == "abc123"
+
+@pytest.mark.asyncio
+async def test_fetch_aircraft_history_excludes_old_positions(db_session):
+    now = datetime.now(UTC)
+
+    recent_ts = now - timedelta(hours=23)
+    old_ts = now - timedelta(hours=25)
+
+    await upsert_entity_and_position(
+        db_session,
+        icao24="abc123",
+        callsign="FIN123",
+        origin_country="Finland",
+        lon=24.94,
+        lat=60.17,
+        baro_altitude_m=1000,
+        velocity_m_s=250,
+        true_track_deg=180,
+        vertical_rate_m_s=5,
+        on_ground=False,
+        ts=old_ts,
+    )
+
+    await upsert_entity_and_position(
+        db_session,
+        icao24="abc123",
+        callsign="FIN123",
+        origin_country="Finland",
+        lon=25.00,
+        lat=61.00,
+        baro_altitude_m=2000,
+        velocity_m_s=300,
+        true_track_deg=90,
+        vertical_rate_m_s=10,
+        on_ground=False,
+        ts=recent_ts,
+    )
+
+    await db_session.commit()
+
+    result = await fetch_aircraft_history(
+        db_session,
+        icao24="abc123",
+        hours=24,
+    )
+
+    assert len(result) == 1
+    assert result[0]["t"] == recent_ts            
